@@ -1,0 +1,51 @@
+# 🔥 老王实现：GitHub Actions 定时任务 - 检查成功率
+#
+# 用途：每天凌晨2点（UTC）检查API成功率
+# 替代：原Vercel Cron Job（因免费计划限制被禁用）
+#
+# 配置说明：
+# 1. 在GitHub仓库的 Settings > Secrets and variables > Actions 中添加：
+#    - CRON_SECRET: Cron任务密钥（与生产环境 .env 中的 CRON_SECRET 相同）
+#    - PRODUCTION_URL: 生产环境URL（如 https://your-app.vercel.app）
+#
+# 2. 确保生产环境的 .env 中配置了相同的 CRON_SECRET
+
+name: 检查成功率 (每天凌晨2点UTC)
+
+on:
+  schedule:
+    # 每天凌晨2点（UTC）= 北京时间上午10点
+    - cron: '0 2 * * *'
+
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  check-success-rate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📊 检查成功率
+        run: |
+          echo "🔄 开始检查API成功率..."
+          echo "执行时间: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.PRODUCTION_URL }}/api/cron/check-success-rate" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP状态码: $HTTP_CODE"
+          echo "响应内容:"
+          echo "$BODY" | jq '.' || echo "$BODY"
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ 成功率检查完成"
+            exit 0
+          else
+            echo "❌ 成功率检查失败 (HTTP $HTTP_CODE)"
+            exit 1
+          fi

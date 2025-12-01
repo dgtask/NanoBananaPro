@@ -62,6 +62,7 @@ export function Showcase() {
                     alt={item.title}
                     fill
                     priority={index < 2}
+                    quality={85}
                     className="object-cover group-hover:scale-110 transition-transform duration-500"
                     sizes="(max-width: 768px) 100vw, 50vw"
                   />

@@ -1,24 +1,30 @@
 {
   "crons": [
     {
-      "path": "/api/cron/refill-credits",
-      "schedule": "0 2 * * *"
-    },
-    {
       "path": "/api/cron/activate-monthly-credits",
       "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/activate-pending-subscriptions",
       "schedule": "0 1 * * *"
+    }
+  ],
+  "_disabled_crons_comment": "以下Cron Job已禁用以符合Vercel免费计划限制（最多2个）。如需启用，请升级到付费计划或改为手动/webhook触发。",
+  "_disabled_crons": [
+    {
+      "path": "/api/cron/refill-credits",
+      "schedule": "0 2 * * *",
+      "reason": "可合并到activate-monthly-credits逻辑中"
     },
     {
       "path": "/api/cron/check-success-rate",
-      "schedule": "0 2 * * *"
+      "schedule": "0 2 * * *",
+      "reason": "改为手动运行或用户触发"
     },
     {
       "path": "/api/cron/distribute-challenge-prizes",
-      "schedule": "0 * * * *"
+      "schedule": "0 * * * *",
+      "reason": "频率太高，改为手动发放或webhook触发"
     }
   ],
   "env": {

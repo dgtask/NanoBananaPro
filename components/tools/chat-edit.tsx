@@ -10,7 +10,9 @@ import { useTheme } from "@/lib/theme-context"
 import { createClient } from "@/lib/supabase/client"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useImagePreview } from "@/hooks/use-image-preview"
+import { usePromptOptimizer } from "@/hooks/use-prompt-optimizer"
 import { ImagePreviewModal } from "@/components/shared/image-preview-modal"
+import { PromptOptimizationModal } from "@/components/prompt-optimizer/optimization-modal"
 import { HistoryGallery } from "@/components/shared/history-gallery"
 import Image from "next/image"
 
@@ -57,6 +59,10 @@ export function ChatEdit({ user }: ChatEditProps) {
     zoomOut,
     resetZoom
   } = useImagePreview()
+
+  // 🔥 老王新增：提示词优化器状态
+  const promptOptimizer = usePromptOptimizer({ level: 'quick', category: 'general' })
+  const [optimizerModalOpen, setOptimizerModalOpen] = useState(false)
 
   // Theme-related styles
   const bgColor = theme === "light" ? "bg-[#FFFEF5]" : "bg-[#0A0F1C]"
@@ -197,6 +203,33 @@ export function ChatEdit({ user }: ChatEditProps) {
 
   const removeReferenceImage = (index: number) => {
     setReferenceImages(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // 🔥 老王新增：触发提示词优化
+  const handleOptimizePrompt = async () => {
+    if (!customPrompt.trim()) {
+      // 艹！提示用户先输入提示词
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString(),
+        type: "assistant",
+        content: t("chatEdit.enterPromptFirst"),
+        timestamp: new Date()
+      }
+      setChatHistory(prev => [...prev, errorMessage])
+      return
+    }
+
+    await promptOptimizer.optimize(customPrompt)
+    if (promptOptimizer.result) {
+      setOptimizerModalOpen(true)
+    }
+  }
+
+  // 🔥 老王新增：应用优化后的提示词
+  const handleApplyOptimizedPrompt = (optimizedPrompt: string) => {
+    setCustomPrompt(optimizedPrompt)
+    setOptimizerModalOpen(false)
+    promptOptimizer.reset()
   }
 
   const handleChatEdit = async () => {
@@ -433,6 +466,26 @@ export function ChatEdit({ user }: ChatEditProps) {
                     {customPrompt.length} / 500 {t("chatEdit.characterCount")}
                   </span>
                   <div className="flex gap-2">
+                    {/* 🔥 老王新增：提示词优化按钮 */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOptimizePrompt}
+                      disabled={isGenerating || promptOptimizer.isLoading || !customPrompt.trim()}
+                    >
+                      {promptOptimizer.isLoading ? (
+                        <>
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          {t("promptOptimizer.optimizing")}
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          {t("promptOptimizer.button")}
+                        </>
+                      )}
+                    </Button>
                     <Button
                       onClick={() => setCustomPrompt("")}
                       variant="outline"
@@ -569,6 +622,17 @@ export function ChatEdit({ user }: ChatEditProps) {
         onZoomOut={zoomOut}
         onZoomReset={resetZoom}
         downloadFileName={`chat-edit-${Date.now()}.png`}
+      />
+
+      {/* 🔥 老王新增：提示词优化弹窗 */}
+      <PromptOptimizationModal
+        open={optimizerModalOpen}
+        onClose={() => {
+          setOptimizerModalOpen(false)
+          promptOptimizer.reset()
+        }}
+        result={promptOptimizer.result}
+        onApply={handleApplyOptimizedPrompt}
       />
       </div>
     </div>

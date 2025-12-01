@@ -1,11 +1,9 @@
 import dynamic from "next/dynamic"
 import { Header } from "@/components/header"
 import { Hero } from "@/components/hero"
+import { EditorSection } from "@/components/editor-section" // 🔥 老王LCP优化：EditorSection在首屏，改为静态导入
 
 // 动态导入非首屏组件（代码分割）
-const EditorSection = dynamic(() => import("@/components/editor-section").then(m => ({ default: m.EditorSection })), {
-  loading: () => <div className="min-h-[600px] flex items-center justify-center bg-gradient-to-b from-primary/5 to-background"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F59E0B]"></div></div>
-})
 
 const FirstVisitPrompt = dynamic(() => import("@/components/tour-button").then(m => ({ default: m.FirstVisitPrompt })), {
   loading: () => null

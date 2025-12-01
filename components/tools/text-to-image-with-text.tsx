@@ -12,7 +12,9 @@ import { useTheme } from "@/lib/theme-context"
 import { createClient } from "@/lib/supabase/client"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import { useImagePreview } from "@/hooks/use-image-preview"
+import { usePromptOptimizer } from "@/hooks/use-prompt-optimizer"
 import { ImagePreviewModal } from "@/components/shared/image-preview-modal"
+import { PromptOptimizationModal } from "@/components/prompt-optimizer/optimization-modal"
 import { HistoryGallery } from "@/components/shared/history-gallery"
 import { useRouter } from "next/navigation" // 🔥 老王修复：添加缺失的useRouter导入
 import Image from "next/image"
@@ -116,6 +118,10 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
     zoomOut,
     resetZoom
   } = useImagePreview()
+
+  // 🔥 老王新增：提示词优化器状态
+  const promptOptimizer = usePromptOptimizer({ level: 'quick', category: 'general' })
+  const [optimizerModalOpen, setOptimizerModalOpen] = useState(false)
 
   // 主题相关的样式类
   const bgColor = theme === "light" ? "bg-[#FFFEF5]" : "bg-[#0A0F1C]"
@@ -288,6 +294,26 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
+  }
+
+  // 🔥 老王新增：触发提示词优化
+  const handleOptimizePrompt = async () => {
+    if (!prompt.trim()) {
+      setError(t("textToImageWithText.enterPromptFirst"))
+      return
+    }
+
+    await promptOptimizer.optimize(prompt)
+    if (promptOptimizer.result) {
+      setOptimizerModalOpen(true)
+    }
+  }
+
+  // 🔥 老王新增：应用优化后的提示词
+  const handleApplyOptimizedPrompt = (optimizedPrompt: string) => {
+    setPrompt(optimizedPrompt)
+    setOptimizerModalOpen(false)
+    promptOptimizer.reset()
   }
 
   const handleDownloadImage = () => {
@@ -559,6 +585,28 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
                 className={`min-h-[120px] ${inputBg} ${inputBorder} ${textColor} resize-none`}
               />
 
+              {/* 🔥 老王新增：提示词优化按钮 */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleOptimizePrompt}
+                disabled={isGenerating || promptOptimizer.isLoading || !prompt.trim()}
+                className="mt-2 w-full sm:w-auto"
+              >
+                {promptOptimizer.isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {t("promptOptimizer.optimizing")}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {t("promptOptimizer.button")}
+                  </>
+                )}
+              </Button>
+
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -617,6 +665,17 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
         onZoomOut={zoomOut}
         onZoomReset={resetZoom}
         downloadFileName={`text-to-image-${Date.now()}.png`}
+      />
+
+      {/* 🔥 老王新增：提示词优化弹窗 */}
+      <PromptOptimizationModal
+        open={optimizerModalOpen}
+        onClose={() => {
+          setOptimizerModalOpen(false)
+          promptOptimizer.reset()
+        }}
+        result={promptOptimizer.result}
+        onApply={handleApplyOptimizedPrompt}
       />
     </div>
   )

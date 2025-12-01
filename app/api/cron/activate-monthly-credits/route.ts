@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 
 /**
- * 🔥 老王实现：定时任务 - 自动激活每月积分
+ * 🔥 老王实现：定时任务 - 自动激活每月积分 + 年付订阅自动充值（合并版）
  *
  * GET/POST /api/cron/activate-monthly-credits
  *
- * 功能：
+ * 功能（合并了原 refill-credits 和 activate-monthly-credits）：
+ *
+ * 第一部分：年付订阅自动充值 (原 refill-credits)
+ * 1. 调用数据库函数 check_and_refill_expired_subscriptions
+ * 2. 查找 next_refill_date <= NOW() 且 remaining_refills > 0 的年付订阅
+ * 3. 自动充值当月积分（30天有效）
+ * 4. remaining_refills -= 1, next_refill_date = 新积分过期时间
+ *
+ * 第二部分：月付订阅激活下一月积分 (原逻辑)
  * 1. 查询所有有未激活月份的活跃订阅 (unactivated_months > 0 && status = 'active')
  * 2. 检查当前月积分是否快要过期（剩余 <= 3天）
  * 3. 如果快要过期，激活下一个月的积分：
@@ -14,8 +22,10 @@ import { createServiceClient } from '@/lib/supabase/service'
  *    - unactivated_months -= 1
  *
  * 调用方式：
- * - Vercel Cron: 配置在 vercel.json 中，每天运行一次
- * - 手动触发: curl -X POST http://localhost:3000/api/cron/activate-monthly-credits
+ * - Vercel Cron: 配置在 vercel.json 中，每天凌晨0点运行
+ * - 手动触发: curl -X POST http://localhost:3000/api/cron/activate-monthly-credits \
+ *              -H "Authorization: Bearer YOUR_CRON_SECRET"
+ * - GitHub Actions: 见 .github/workflows/cron-jobs.yml
  *
  * 安全：
  * - 生产环境：需要验证 Vercel Cron Secret (CRON_SECRET)
@@ -45,9 +55,24 @@ async function handleCronJob(request: NextRequest) {
       }
     }
 
-    console.log('🔄 [Cron] 开始自动激活每月积分...')
+    console.log('🔄 [Cron] 开始自动激活每月积分 + 年付订阅自动充值...')
 
     const supabase = createServiceClient()
+
+    // ========== 第一部分：年付订阅自动充值 (原 refill-credits 逻辑) ==========
+    console.log('📦 [Cron] 执行年付订阅自动充值...')
+
+    const { data: refillData, error: refillError } = await supabase.rpc('check_and_refill_expired_subscriptions')
+
+    if (refillError) {
+      console.error('❌ [Cron] 年付订阅自动充值失败:', refillError)
+    } else {
+      const refilledCount = refillData?.length || 0
+      console.log(`✅ [Cron] 年付订阅自动充值完成: ${refilledCount} 个订阅`)
+    }
+
+    // ========== 第二部分：月付订阅激活下一月积分 (原逻辑) ==========
+    console.log('📦 [Cron] 执行月付订阅激活下一月积分...')
 
     // 1. 查询所有有未激活月份的活跃订阅
     const { data: subscriptions, error: fetchError } = await supabase
@@ -175,16 +200,23 @@ async function handleCronJob(request: NextRequest) {
     const activated = results.filter(r => r.status === 'activated').length
     const skipped = results.filter(r => r.status === 'skipped').length
     const errors = results.filter(r => r.status === 'error').length
+    const refilledCount = refillData?.length || 0
 
-    console.log(`✅ [Cron] 激活完成：激活=${activated}, 跳过=${skipped}, 错误=${errors}`)
+    console.log(`✅ [Cron] 总计完成：年付充值=${refilledCount}, 月付激活=${activated}, 跳过=${skipped}, 错误=${errors}`)
 
     return NextResponse.json({
       success: true,
-      message: `激活完成：激活=${activated}, 跳过=${skipped}, 错误=${errors}`,
-      activated,
-      skipped,
-      errors,
-      results,
+      message: `Cron任务完成：年付充值=${refilledCount}, 月付激活=${activated}, 跳过=${skipped}, 错误=${errors}`,
+      refill: {
+        count: refilledCount,
+        subscriptions: refillData || [],
+      },
+      activate: {
+        activated,
+        skipped,
+        errors,
+        results,
+      },
     })
 
   } catch (error) {

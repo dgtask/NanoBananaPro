@@ -16,6 +16,8 @@ import { ImagePreviewModal } from "@/components/shared/image-preview-modal"
 import { OutputGallery } from "@/components/shared/output-gallery"
 import { HistoryGallery } from "@/components/shared/history-gallery"
 import Image from "next/image"
+import { usePromptOptimizer } from "@/hooks/use-prompt-optimizer"
+import { PromptOptimizationModal } from "@/components/prompt-optimizer/optimization-modal"
 
 interface ConsistentGenerationProps {
   user: SupabaseUser | null
@@ -59,6 +61,10 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
     zoomOut,
     resetZoom
   } = useImagePreview()
+
+  // 🔥 老王新增：提示词优化器状态
+  const promptOptimizer = usePromptOptimizer({ level: 'quick', category: 'general' })
+  const [optimizerModalOpen, setOptimizerModalOpen] = useState(false)
 
   // 加载用户已保存的图片和历史记录
   const loadSavedImages = useCallback(async () => {
@@ -306,6 +312,26 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
   const cardBorder = theme === "light" ? "border-[#F59E0B]/20" : "border-[#1E293B]"
   const inputBg = theme === "light" ? "bg-white" : "bg-[#1E293B]"
   const inputBorder = theme === "light" ? "border-[#E2E8F0]" : "border-[#374151]"
+
+  // 🔥 老王新增：触发提示词优化
+  const handleOptimizePrompt = async () => {
+    if (!prompt.trim()) {
+      setError(t("consistentGeneration.enterPromptFirst"))
+      return
+    }
+
+    await promptOptimizer.optimize(prompt)
+    if (promptOptimizer.result) {
+      setOptimizerModalOpen(true)
+    }
+  }
+
+  // 🔥 老王新增：应用优化后的提示词
+  const handleApplyOptimizedPrompt = (optimizedPrompt: string) => {
+    setPrompt(optimizedPrompt)
+    setOptimizerModalOpen(false)
+    promptOptimizer.reset()
+  }
 
   // 生成一致性图片
   const handleGenerate = async () => {
@@ -574,6 +600,27 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
             placeholder={t("consistentGeneration.promptPlaceholder")}
             className={`min-h-[100px] ${inputBg} ${inputBorder} ${textColor}`}
           />
+          {/* 🔥 老王新增：提示词优化按钮 */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleOptimizePrompt}
+            disabled={isGenerating || promptOptimizer.isLoading || !prompt.trim()}
+            className="mt-2 w-full sm:w-auto"
+          >
+            {promptOptimizer.isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {t("promptOptimizer.optimizing")}
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                {t("promptOptimizer.button")}
+              </>
+            )}
+          </Button>
         </div>
 
         {/* 生成按钮 */}
@@ -720,6 +767,17 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
         onZoomOut={zoomOut}
         onZoomReset={resetZoom}
         downloadFileName={`consistent-generation-${Date.now()}.png`}
+      />
+
+      {/* 🔥 老王新增：提示词优化弹窗 */}
+      <PromptOptimizationModal
+        open={optimizerModalOpen}
+        onClose={() => {
+          setOptimizerModalOpen(false)
+          promptOptimizer.reset()
+        }}
+        result={promptOptimizer.result}
+        onApply={handleApplyOptimizedPrompt}
       />
     </div>
   )

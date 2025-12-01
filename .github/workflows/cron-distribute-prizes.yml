@@ -1,0 +1,53 @@
+# 🔥 老王实现：GitHub Actions 定时任务 - 发放挑战奖励
+#
+# 用途：每小时（整点）发放挑战奖励
+# 替代：原Vercel Cron Job（因免费计划限制被禁用）
+#
+# 配置说明：
+# 1. 在GitHub仓库的 Settings > Secrets and variables > Actions 中添加：
+#    - CRON_SECRET: Cron任务密钥（与生产环境 .env 中的 CRON_SECRET 相同）
+#    - PRODUCTION_URL: 生产环境URL（如 https://your-app.vercel.app）
+#
+# 2. 确保生产环境的 .env 中配置了相同的 CRON_SECRET
+#
+# 注意：每小时运行可能消耗GitHub Actions配额，如需降低频率可修改cron表达式
+
+name: 发放挑战奖励 (每小时整点)
+
+on:
+  schedule:
+    # 每小时（整点）
+    - cron: '0 * * * *'
+
+  # 允许手动触发
+  workflow_dispatch:
+
+jobs:
+  distribute-challenge-prizes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🏆 发放挑战奖励
+        run: |
+          echo "🔄 开始发放挑战奖励..."
+          echo "执行时间: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ secrets.PRODUCTION_URL }}/api/cron/distribute-challenge-prizes" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP状态码: $HTTP_CODE"
+          echo "响应内容:"
+          echo "$BODY" | jq '.' || echo "$BODY"
+
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ 挑战奖励发放完成"
+            exit 0
+          else
+            echo "❌ 挑战奖励发放失败 (HTTP $HTTP_CODE)"
+            exit 1
+          fi

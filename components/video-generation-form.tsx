@@ -23,10 +23,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Video, Loader2, AlertCircle, Coins, Plus, Info } from "lucide-react"
+import { Video, Loader2, AlertCircle, Coins, Plus, Info, Sparkles } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 import { ImageUploadCard, type ImageSource } from "./video/image-upload-card"
 import { HistoryImagePickerModal } from "./video/history-image-picker-modal"
+import { usePromptOptimizer } from "@/hooks/use-prompt-optimizer"
+import { PromptOptimizationModal } from "@/components/prompt-optimizer/optimization-modal"
 
 // 🔥 生成模式类型
 type GenerationMode = "text-to-video" | "reference-images" | "first-last-frame"
@@ -96,6 +98,11 @@ export function VideoGenerationForm({ onSuccess, initialValues }: VideoGeneratio
   // 🔥 UI状态
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // 🔥 老王新增：提示词优化器状态（prompt和negativePrompt都能优化）
+  const [optimizingField, setOptimizingField] = useState<"prompt" | "negativePrompt" | null>(null)
+  const promptOptimizer = usePromptOptimizer({ level: 'quick', category: 'general' })
+  const [optimizerModalOpen, setOptimizerModalOpen] = useState(false)
 
   // 🔥 老王新增：监听 initialValues 变化，动态回填表单
   useEffect(() => {
@@ -225,6 +232,34 @@ export function VideoGenerationForm({ onSuccess, initialValues }: VideoGeneratio
 
     setHistoryModalOpen(false)
     setHistoryModalTarget(null)
+  }
+
+  // 🔥 老王新增：触发提示词优化
+  const handleOptimizePrompt = async (field: "prompt" | "negativePrompt") => {
+    const promptText = field === "prompt" ? params.prompt : params.negativePrompt
+    if (!promptText.trim()) {
+      setError(t("video.form.errorPromptRequired"))
+      return
+    }
+
+    setOptimizingField(field)
+    await promptOptimizer.optimize(promptText)
+    setOptimizingField(null)
+
+    if (promptOptimizer.result) {
+      setOptimizerModalOpen(true)
+    }
+  }
+
+  // 🔥 老王新增：应用优化后的提示词
+  const handleApplyOptimizedPrompt = (optimizedPrompt: string) => {
+    if (optimizingField === "prompt") {
+      setParams({ ...params, prompt: optimizedPrompt })
+    } else if (optimizingField === "negativePrompt") {
+      setParams({ ...params, negativePrompt: optimizedPrompt })
+    }
+    setOptimizerModalOpen(false)
+    promptOptimizer.reset()
   }
 
   // 🔥 表单验证
@@ -490,6 +525,27 @@ export function VideoGenerationForm({ onSuccess, initialValues }: VideoGeneratio
               className="resize-none"
               disabled={isGenerating}
             />
+            {/* 🔥 老王新增：提示词优化按钮 */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleOptimizePrompt("prompt")}
+              disabled={isGenerating || optimizingField === "prompt" || !params.prompt.trim()}
+              className="w-full sm:w-auto"
+            >
+              {optimizingField === "prompt" ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {t("promptOptimizer.optimizing")}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {t("promptOptimizer.button")}
+                </>
+              )}
+            </Button>
           </div>
 
           {/* 负面提示词 */}
@@ -506,6 +562,27 @@ export function VideoGenerationForm({ onSuccess, initialValues }: VideoGeneratio
               className="resize-none"
               disabled={isGenerating}
             />
+            {/* 🔥 老王新增：负面提示词优化按钮 */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleOptimizePrompt("negativePrompt")}
+              disabled={isGenerating || optimizingField === "negativePrompt" || !params.negativePrompt.trim()}
+              className="w-full sm:w-auto"
+            >
+              {optimizingField === "negativePrompt" ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {t("promptOptimizer.optimizing")}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {t("promptOptimizer.button")}
+                </>
+              )}
+            </Button>
           </div>
 
           {/* 参数选择 */}
@@ -659,6 +736,17 @@ export function VideoGenerationForm({ onSuccess, initialValues }: VideoGeneratio
           loadMore: t("video.historyPicker.loadMore"),
           select: t("video.historyPicker.select"),
         }}
+      />
+
+      {/* 🔥 老王新增：提示词优化弹窗 */}
+      <PromptOptimizationModal
+        open={optimizerModalOpen}
+        onClose={() => {
+          setOptimizerModalOpen(false)
+          promptOptimizer.reset()
+        }}
+        result={promptOptimizer.result}
+        onApply={handleApplyOptimizedPrompt}
       />
     </>
   )

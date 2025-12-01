@@ -101,6 +101,20 @@ export default async function RootLayout({
           media="(max-width: 767px)"
         />
 
+        {/* 🔥 老王LCP优化：预加载首屏Showcase关键图片（优先加载前2张，防止LCP超标） */}
+        <link
+          rel="preload"
+          as="image"
+          href="/majestic-snow-capped-mountain-range-at-golden-hour.jpg"
+          fetchPriority="high"
+        />
+        <link
+          rel="preload"
+          as="image"
+          href="/traditional-japanese-garden-with-cherry-blossoms-a.jpg"
+          fetchPriority="high"
+        />
+
         {/* 🔥 老王优化：预连接到关键域名，减少 DNS 查询和 TLS 握手时间 */}
         {/* Supabase 预连接（用户认证、数据存储、图片上传） - 桌面端优先 */}
         <link rel="preconnect" href="https://gtpvyxrgkuccgpcaeeyt.supabase.co" media="(min-width: 768px)" />
