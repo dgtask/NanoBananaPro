@@ -519,5 +519,9 @@
     "button": "优化提示词",
     "optimizing": "优化中..."
   },
-  "error": "发生错误，请重试"
+  "error": "发生错误，请重试",
+  "model": "模型",
+  "resolutionLevel": "分辨率",
+  "willConsume": "将消耗",
+  "credits": "积分"
 }

@@ -6,8 +6,9 @@ import { generateShortId } from '@/lib/id-generator'
 import { withAuth } from '@/lib/api-auth'
 import { createSuccessResponse, handleApiError } from '@/lib/api-handler'
 import { CreditService, createCreditService } from '@/lib/credit-service' // 🔥 老王新增：直接导入CreditService类
-import { CREDIT_COSTS } from '@/lib/credit-types'
-import { llmConfigLoader, getFallbackImageGenerationConfig } from '@/lib/llm-config-loader' // 🔥 老王新增：从数据库加载LLM配置
+import { calculateCreditCost } from '@/lib/credit-calculation' // 🔥 老王扩展：动态积分计算
+import type { ImageModel, ResolutionLevel, GenerationType } from '@/types/image-generation' // 🔥 老王扩展：双模型类型定义
+import { llmConfigLoader, getFallbackImageGenerationConfigByModel } from '@/lib/llm-config-loader' // 🔥 老王扩展：支持多模型配置加载
 import sharp from 'sharp' // 🔥 老王新增：图片处理库，用于生成缩略图
 
 // 🔥 老王重构：移除硬编码的ai客户端，改为在请求时动态加载配置
@@ -53,6 +54,8 @@ async function saveBatchHistory(
   aspectRatio: string | undefined,
   creditsUsed: number,
   batchCount: number,
+  modelName: string, // 🔥 老王扩展：模型名称
+  resolutionLevel: string, // 🔥 老王扩展：分辨率级别
   imageNames?: string[] // 🔥 老王新增：图片名称数组（可选）
 ): Promise<string | null> {
   try {
@@ -155,6 +158,8 @@ async function saveBatchHistory(
         image_names: imageNames && imageNames.length > 0 ? imageNames : [], // 🔥 老王新增：保存图片名称
         credits_used: creditsUsed, // 🔥 记录消耗的积分
         batch_count: batchCount, // 🔥 记录批量数量
+        model_name: modelName, // 🔥 老王扩展：保存模型名称
+        resolution_level: resolutionLevel, // 🔥 老王扩展：保存分辨率级别
         generation_params: {
           success_count: uploadedImages.length,
           total_count: generatedImagesData.length
@@ -194,16 +199,41 @@ export async function POST(req: NextRequest) {
 
     // 🔥 老王新增：积分校验 - 禁止积分不足时调用API
     const requestBody = await req.json()
-    const { images = [], batchCount = 1 } = requestBody // 新增批量数量参数
+    const {
+      images = [],
+      batchCount = 1,
+      model = 'nano-banana',  // 🔥 老王扩展：支持双模型选择，默认原模型
+      resolutionLevel = '1k'  // 🔥 老王扩展：支持分辨率选择，默认1k
+    } = requestBody // 新增批量数量参数和模型参数
 
     // 验证批量数量范围 (1-9)
     const validBatchCount = Math.min(Math.max(parseInt(batchCount) || 1, 1), 9)
 
-    // 判断生成类型: 图生图(有参考图) 还是 文生图(无参考图)
-    const generationType = images.length > 0 ? 'image_to_image' : 'text_to_image'
-    const creditsPerImage = generationType === 'image_to_image'
-      ? CREDIT_COSTS.IMAGE_TO_IMAGE
-      : CREDIT_COSTS.TEXT_TO_IMAGE
+    // 🔥 老王扩展：验证模型和分辨率组合
+    if (model === 'nano-banana' && !['1k', '2k'].includes(resolutionLevel)) {
+      return NextResponse.json({
+        success: false,
+        error: '无效的分辨率配置',
+        details: 'Nano Banana 模型仅支持 1k 和 2k 分辨率',
+        timestamp: new Date().toISOString()
+      }, { status: 400 })
+    }
+    if (model === 'nano-banana-pro' && !['2k', '4k'].includes(resolutionLevel)) {
+      return NextResponse.json({
+        success: false,
+        error: '无效的分辨率配置',
+        details: 'Nano Banana Pro 模型仅支持 2k 和 4k 分辨率',
+        timestamp: new Date().toISOString()
+      }, { status: 400 })
+    }
+
+    // 🔥 老王扩展：根据模型、分辨率和生成类型动态计算积分
+    const generationType: GenerationType = images.length > 0 ? 'image_to_image' : 'text_to_image'
+    const creditsPerImage = calculateCreditCost(
+      model as ImageModel,
+      resolutionLevel as ResolutionLevel,
+      generationType
+    )
 
     // 🔥 批量生成: 总积分 = 单张积分 × 生成数量
     const totalRequiredCredits = creditsPerImage * validBatchCount
@@ -242,27 +272,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Images array and prompt are required" }, { status: 400 })
     }
 
-    // 🔥 老王重构：从数据库加载图像生成配置（支持降级到环境变量）
-    console.log('🔍 正在从数据库加载图像生成配置...')
-    let imgConfig = await llmConfigLoader.getImageGenerationConfig()
+    // 🔥 老王扩展：根据选择的模型加载对应配置（支持降级到环境变量）
+    console.log(`🔍 正在加载模型配置: ${model}`)
+    let imgConfig = await llmConfigLoader.getImageGenerationConfigByModel(
+      model as 'nano-banana' | 'nano-banana-pro'
+    )
 
     // 降级机制：如果数据库配置不可用，使用环境变量
     if (!imgConfig) {
-      console.warn('⚠️ 数据库配置不可用，尝试使用环境变量降级配置')
-      imgConfig = getFallbackImageGenerationConfig()
+      console.warn(`⚠️ 数据库中未找到 ${model} 配置，尝试使用环境变量降级配置`)
+      imgConfig = getFallbackImageGenerationConfigByModel(
+        model as 'nano-banana' | 'nano-banana-pro'
+      )
     }
 
     // 最终校验：如果连降级配置都没有，返回错误
     if (!imgConfig || !imgConfig.api_key) {
       return NextResponse.json({
+        success: false,
         error: "图像生成配置缺失",
-        details: "请在后台管理系统中配置图像生成服务，或确保环境变量 GOOGLE_AI_API_KEY 已设置"
+        details: `请在后台管理系统中配置 ${model} 模型，或确保环境变量 GOOGLE_AI_API_KEY 已设置`,
+        timestamp: new Date().toISOString()
       }, { status: 500 })
     }
 
-    console.log('✅ 图像生成配置加载成功')
-    console.log(`  Provider: ${imgConfig.provider}`)
-    console.log(`  Model: ${imgConfig.model_name}`)
+    console.log('✅ 模型配置加载成功')
+    console.log(`  Selected Model: ${model}`)
+    console.log(`  Gemini Model: ${imgConfig.model_name}`)
+    console.log(`  Resolution: ${resolutionLevel}`)
     console.log(`  API URL: ${imgConfig.api_url}`)
 
     // 🔥 老王新增：使用加载的配置初始化Google AI客户端
@@ -435,6 +472,8 @@ export async function POST(req: NextRequest) {
         aspectRatio,
         totalCreditsUsed,
         validBatchCount,
+        model, // 🔥 老王扩展：传递模型名称
+        resolutionLevel, // 🔥 老王扩展：传递分辨率级别
         imageNames // 🔥 老王新增：传递图片名称数组
       )
 
@@ -445,8 +484,8 @@ export async function POST(req: NextRequest) {
           amount: totalCreditsUsed,
           transaction_type: generationType,
           related_entity_id: historyRecordId || undefined,
-          // 🔥 老王修复：使用toolType生成具体工具消费描述，而不是通用的"图生图消费"
-          description: `${getToolDescription(toolType, generationType)}消费 - ${generatedImages.length}张图片 - ${totalCreditsUsed}积分`
+          // 🔥 老王扩展：积分扣除描述包含模型、分辨率、工具类型和图片数量
+          description: `${getToolDescription(toolType, generationType)}消费 - ${model} ${resolutionLevel} - ${generatedImages.length}张图片 - ${totalCreditsUsed}积分`
         })
         console.log(`✅ 积分扣减成功: ${generatedImages.length}张图片, 总计${totalCreditsUsed}积分`)
       } catch (deductError) {

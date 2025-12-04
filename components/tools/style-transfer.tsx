@@ -14,6 +14,10 @@ import { ImagePreviewModal } from "@/components/shared/image-preview-modal"
 import { OutputGallery } from "@/components/shared/output-gallery"
 import { HistoryGallery } from "@/components/shared/history-gallery"
 import Image from "next/image"
+import { ModelSelector } from "@/components/image-generation/model-selector"
+import { ResolutionSelector } from "@/components/image-generation/resolution-selector"
+import { CreditCostDisplay } from "@/components/image-generation/credit-cost-display"
+import type { ImageModel, ResolutionLevel } from '@/types/image-generation'
 
 // 风格列表定义
 const STYLE_LIST = [
@@ -44,6 +48,9 @@ export function StyleTransfer({ user }: StyleTransferProps) {
 
   const [selectedStyle, setSelectedStyle] = useState<string | null>(null)
   const [referenceImage, setReferenceImage] = useState<string | null>(null)
+  // 🔥 老王扩展：双模型支持
+  const [model, setModel] = useState<ImageModel>('nano-banana')
+  const [resolutionLevel, setResolutionLevel] = useState<ResolutionLevel>('1k')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImages, setGeneratedImages] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -178,6 +185,8 @@ export function StyleTransfer({ user }: StyleTransferProps) {
           prompt: `Transform this image ${selectedStyleData.prompt}. Maintain the core composition and subject while applying the style transformation.`,
           images: [referenceImage],
           toolType: 'style-transfer',
+          model: model, // 🔥 老王扩展：传递模型选择
+          resolutionLevel: resolutionLevel, // 🔥 老王扩展：传递分辨率级别
         })
       })
 
@@ -338,6 +347,23 @@ export function StyleTransfer({ user }: StyleTransferProps) {
           ))}
         </div>
 
+        {/* 🔥 老王扩展：模型选择和分辨率选择 (横向布局) */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <ModelSelector
+            value={model}
+            onChange={setModel}
+            disabled={isGenerating}
+            namespace="tools"
+          />
+          <ResolutionSelector
+            model={model}
+            value={resolutionLevel}
+            onChange={setResolutionLevel}
+            disabled={isGenerating}
+            namespace="tools"
+          />
+        </div>
+
         {/* 参考图上传 */}
         <div className="mb-4">
           <h3 className={`text-sm font-medium ${textColor} mb-3`}>
@@ -379,6 +405,17 @@ export function StyleTransfer({ user }: StyleTransferProps) {
           )}
         </div>
 
+        {/* 🔥 老王扩展：实时积分显示 */}
+        <div className="mb-4">
+          <CreditCostDisplay
+            model={model}
+            resolutionLevel={resolutionLevel}
+            hasReferenceImage={true}
+            batchCount={1}
+            namespace="tools"
+          />
+        </div>
+
         {/* 生成按钮 */}
         <Button
           onClick={handleGenerate}
@@ -393,7 +430,7 @@ export function StyleTransfer({ user }: StyleTransferProps) {
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              {t("styleTransfer.generateNow")} ({t("styleTransfer.costsCredits")})
+              {t("styleTransfer.generateNow")}
             </>
           )}
         </Button>

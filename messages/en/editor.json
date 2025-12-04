@@ -367,6 +367,11 @@
     "copyPrompt": "Copy",
     "promptCopy": "Prompt",
     "batchGenerateMode": "Batch Generation Mode",
-    "loginRequired": "Log in to view history"
+    "loginRequired": "Log in to view history",
+    "model": "Model",
+    "resolutionLevel": "Resolution",
+    "modelAndResolution": "Model & Resolution",
+    "willConsume": "Will consume",
+    "credits": "credits"
   }
 }

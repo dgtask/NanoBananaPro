@@ -384,6 +384,11 @@
     "copyPrompt": "复制",
     "promptCopy": "提示词",
     "batchGenerateMode": "批量生成模式",
-    "loginRequired": "登录查看历史"
+    "loginRequired": "登录查看历史",
+    "model": "模型",
+    "resolutionLevel": "分辨率",
+    "modelAndResolution": "模型与分辨率",
+    "willConsume": "将消耗",
+    "credits": "积分"
   }
 }

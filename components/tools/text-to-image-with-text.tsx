@@ -20,6 +20,10 @@ import { PromptOptimizationModal } from "@/components/prompt-optimizer/optimizat
 import { HistoryGallery } from "@/components/shared/history-gallery"
 import { useRouter } from "next/navigation" // 🔥 老王修复：添加缺失的useRouter导入
 import Image from "next/image"
+import { ModelSelector } from "@/components/image-generation/model-selector"
+import { ResolutionSelector } from "@/components/image-generation/resolution-selector"
+import { CreditCostDisplay } from "@/components/image-generation/credit-cost-display"
+import type { ImageModel, ResolutionLevel } from '@/types/image-generation'
 
 interface TextToImageWithTextProps {
   user: SupabaseUser | null
@@ -100,6 +104,9 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
   const [aspectRatio, setAspectRatio] = useState("16:9")
   const [batchCount, setBatchCount] = useState(1) // 🔥 老王新增：批量生成数量（1-9张）
+  // 🔥 老王扩展：双模型支持
+  const [model, setModel] = useState<ImageModel>('nano-banana')
+  const [resolutionLevel, setResolutionLevel] = useState<ResolutionLevel>('1k')
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -262,6 +269,8 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
           responseModalities: ['Image', 'Text'], // 图文交织模式
           toolType: 'text-to-image-with-text',
           batchCount: batchCount, // 🔥 老王新增：批量生成数量
+          model: model, // 🔥 老王扩展：传递模型选择
+          resolutionLevel: resolutionLevel, // 🔥 老王扩展：传递分辨率级别
         })
       })
 
@@ -394,6 +403,24 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
               <CardTitle className={`text-lg ${textColor}`}>{t("textToImageWithText.parameterSettings")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* 🔥 老王扩展：模型选择和分辨率选择 (横向布局) */}
+              <div className="grid grid-cols-2 gap-4">
+                <ModelSelector
+                  value={model}
+                  onChange={setModel}
+                  disabled={isGenerating}
+                  namespace="tools"
+                />
+
+                <ResolutionSelector
+                  model={model}
+                  value={resolutionLevel}
+                  onChange={setResolutionLevel}
+                  disabled={isGenerating}
+                  namespace="tools"
+                />
+              </div>
+
               <div>
                 <label className={`block text-sm font-medium mb-2 ${textColor}`}>
                   {t("textToImageWithText.aspectRatioLabel")}
@@ -625,6 +652,15 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
                 </div>
               )}
 
+              {/* 🔥 老王扩展：实时积分显示 */}
+              <CreditCostDisplay
+                model={model}
+                resolutionLevel={resolutionLevel}
+                hasReferenceImage={false}
+                batchCount={batchCount}
+                namespace="tools"
+              />
+
               <Button
                 onClick={handleGenerate}
                 disabled={isGenerating || !prompt.trim()}
@@ -638,7 +674,7 @@ export function TextToImageWithText({ user }: TextToImageWithTextProps) {
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
-                    {t("textToImageWithText.generateContent")} ({language === 'zh' ? `消耗 ${batchCount} ${t("textToImageWithText.creditsUnit")}` : `Costs ${batchCount} ${batchCount === 1 ? t("textToImageWithText.creditUnit") : t("textToImageWithText.creditsUnit")}`})
+                    {t("textToImageWithText.generateContent")}
                   </>
                 )}
               </Button>

@@ -6,6 +6,49 @@
 
 ## [Unreleased]
 
+## [0.0.6] - 2025-12-04
+
+### Fixed（修复）
+- **🔥 Forum 组件 TypeScript 类型错误修复（Critical - 阻塞生产构建）**:
+  - **根本原因**: next-intl 的 `useLocale()` 返回类型为 `string`，但代码中需要精确类型 `'zh' | 'en'` 用于对象索引访问
+  - **影响**: 导致 4 个论坛组件编译失败，无法完成生产构建
+  - **修复方案**:
+    1. `components/forum/moderator-actions.tsx:88` - 添加类型断言 `as 'zh' | 'en'`
+    2. `components/forum/reply-item.tsx:61` - 添加类型断言 `as 'zh' | 'en'`
+    3. `components/forum/report-dialog.tsx:50` - 添加类型断言 `as 'zh' | 'en'`
+    4. `components/forum/thread-card.tsx:48` - 添加类型断言 `as 'zh' | 'en'`
+  - **修复模式**:
+    ```typescript
+    // ❌ 错误（隐式 any）
+    const language = useLocale()
+
+    // ✅ 正确（类型断言）
+    const language = useLocale() as 'zh' | 'en'
+    ```
+  - **构建结果**: ✅ 生产构建成功，生成 230 个静态页面
+
+### Performance（性能）
+- **🎉 LCP 性能优化验证成功 (Production Build)**:
+  - **测试环境**: Production build + Chrome DevTools Performance Trace
+  - **测试结果**:
+    - **LCP: 0.201s (201ms)**
+    - **目标: ≤2.5s**
+    - **改善幅度: 97.9%** (从 9.4s → 0.201s)
+    - TTFB: 24ms (优秀)
+    - Render Delay: 177ms
+    - CLS: 0.06 (优秀，≤0.1 目标)
+  - **性能结论**:
+    - ✅ LCP 超额完成目标 **12 倍**
+    - ✅ 无渲染阻塞请求
+    - ✅ 网络依赖树优化
+    - ⚠️ 检测到部分强制重排（可进一步优化）
+  - **关键优化措施** (回顾 Phase 3):
+    - 最小化关键 CSS 内联（仅颜色变量 + 基础样式）
+    - Cookie 横幅改用 `position: fixed` 定位
+    - 代码高亮库动态加载（Speed Index: 3.7s → 1.1s）
+    - Geist 字体 preload + Supabase 域名预连接
+  - **参考文档**: `PERFORMANCE_FINAL_REPORT_2025-11-23.md`
+
 ### Added（新增）
 - **🚀 SDK发布CI/CD自动化 (2025-12-01 - P1.2 任务完成)** - **GraphQL SDK + Python SDK自动发布系统** ✅：
   - **npm发布配置**（package.json）：

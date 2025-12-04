@@ -17,6 +17,10 @@ import { ImagePreviewModal } from "@/components/shared/image-preview-modal"
 import { PromptOptimizationModal } from "@/components/prompt-optimizer/optimization-modal"
 import { HistoryGallery } from "@/components/shared/history-gallery"
 import Image from "next/image"
+import { ModelSelector } from "@/components/image-generation/model-selector"
+import { ResolutionSelector } from "@/components/image-generation/resolution-selector"
+import { CreditCostDisplay } from "@/components/image-generation/credit-cost-display"
+import type { ImageModel, ResolutionLevel } from '@/types/image-generation'
 
 interface ChatEditProps {
   user: SupabaseUser | null
@@ -50,6 +54,9 @@ export function ChatEdit({ user }: ChatEditProps) {
   const [historyRecords, setHistoryRecords] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyImages, setHistoryImages] = useState<any[]>([])
+  // 🔥 老王扩展：双模型支持
+  const [model, setModel] = useState<ImageModel>('nano-banana')
+  const [resolutionLevel, setResolutionLevel] = useState<ResolutionLevel>('1k')
 
   // 🔥 老王重构：使用自定义Hook管理预览状态
   const {
@@ -278,6 +285,8 @@ export function ChatEdit({ user }: ChatEditProps) {
           prompt: customPrompt,
           responseModalities: ['Image', 'Text'],
           toolType: 'chat-edit',
+          model: model, // 🔥 老王扩展：传递模型选择
+          resolutionLevel: resolutionLevel, // 🔥 老王扩展：传递分辨率级别
         })
       })
 
@@ -456,12 +465,39 @@ export function ChatEdit({ user }: ChatEditProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* 🔥 老王扩展：模型选择和分辨率选择 (横向布局) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <ModelSelector
+                    value={model}
+                    onChange={setModel}
+                    disabled={isGenerating}
+                    namespace="tools"
+                  />
+
+                  <ResolutionSelector
+                    model={model}
+                    value={resolutionLevel}
+                    onChange={setResolutionLevel}
+                    disabled={isGenerating}
+                    namespace="tools"
+                  />
+                </div>
+
                 <Textarea
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   placeholder={t("chatEdit.editPromptPlaceholder")}
                   className={`min-h-[120px] ${inputBg} ${inputBorder} ${textColor} resize-none`}
                   maxLength={500}
+                />
+
+                {/* 🔥 老王扩展：实时积分显示 */}
+                <CreditCostDisplay
+                  model={model}
+                  resolutionLevel={resolutionLevel}
+                  hasReferenceImage={selectedBaseImage !== null || referenceImages.length > 0}
+                  batchCount={1}
+                  namespace="tools"
                 />
 
                 <div className="flex items-center justify-between">
@@ -510,7 +546,7 @@ export function ChatEdit({ user }: ChatEditProps) {
                       ) : (
                         <>
                           <Sparkles className="w-3 h-3 mr-1" />
-                          {t("chatEdit.startEditing")} ({t("chatEdit.costsCredits")})
+                          {t("chatEdit.startEditing")}
                         </>
                       )}
                     </Button>

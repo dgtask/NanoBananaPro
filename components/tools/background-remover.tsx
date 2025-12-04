@@ -15,6 +15,10 @@ import { useImagePreview } from "@/hooks/use-image-preview"
 import { ImagePreviewModal } from "@/components/shared/image-preview-modal"
 import { HistoryGallery } from "@/components/shared/history-gallery"
 import Image from "next/image"
+import { ModelSelector } from "@/components/image-generation/model-selector"
+import { ResolutionSelector } from "@/components/image-generation/resolution-selector"
+import { CreditCostDisplay } from "@/components/image-generation/credit-cost-display"
+import type { ImageModel, ResolutionLevel } from '@/types/image-generation'
 
 interface BackgroundRemoverProps {
   user: SupabaseUser | null
@@ -39,6 +43,9 @@ export function BackgroundRemover({ user }: BackgroundRemoverProps) {
   const [historyRecords, setHistoryRecords] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyImages, setHistoryImages] = useState<any[]>([])
+  // 🔥 老王扩展：双模型支持
+  const [model, setModel] = useState<ImageModel>('nano-banana')
+  const [resolutionLevel, setResolutionLevel] = useState<ResolutionLevel>('1k')
 
   // 🔥 老王重构：使用自定义Hook管理预览状态
   const {
@@ -203,7 +210,9 @@ export function BackgroundRemover({ user }: BackgroundRemoverProps) {
         body: JSON.stringify({
           images: [referenceImage],
           prompt: "Using the image provided, remove the background elements from the scene and keep the subject. Make sure the background is transparent.",
-          toolType: 'background-remover', // 🔥 老王新增：标记工具类���
+          toolType: 'background-remover', // 🔥 老王新增：标记工具类型
+          model: model, // 🔥 老王扩展：传递模型选择
+          resolutionLevel: resolutionLevel, // 🔥 老王扩展：传递分辨率级别
         }),
       })
 
@@ -376,6 +385,33 @@ export function BackgroundRemover({ user }: BackgroundRemoverProps) {
           </label>
         )}
 
+        {/* 🔥 老王扩展：模型选择和分辨率选择 (横向布局) */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <ModelSelector
+            value={model}
+            onChange={setModel}
+            disabled={isGenerating}
+            namespace="tools"
+          />
+          <ResolutionSelector
+            model={model}
+            value={resolutionLevel}
+            onChange={setResolutionLevel}
+            disabled={isGenerating}
+            namespace="tools"
+          />
+        </div>
+
+        {/* 🔥 老王扩展：实时积分显示 */}
+        <div className="mb-4">
+          <CreditCostDisplay
+            model={model}
+            resolutionLevel={resolutionLevel}
+            hasReferenceImage={true}
+            batchCount={1}
+            namespace="tools"
+          />
+        </div>
 
         <Button
           onClick={handleGenerate}
@@ -388,7 +424,7 @@ export function BackgroundRemover({ user }: BackgroundRemoverProps) {
               {t("backgroundRemover.generating")}
             </>
           ) : (
-            `${t("backgroundRemover.removeBackground")} (${t("backgroundRemover.costsCredits")})`
+            t("backgroundRemover.removeBackground")
           )}
         </Button>
 

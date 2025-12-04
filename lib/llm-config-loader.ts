@@ -91,6 +91,51 @@ export class LLMConfigLoader {
   }
 
   /**
+   * 🔥 老王扩展：根据模型类型获取图像生成配置
+   * @param model 模型类型（nano-banana / nano-banana-pro）
+   */
+  async getImageGenerationConfigByModel(
+    model: 'nano-banana' | 'nano-banana-pro'
+  ): Promise<ImageGenerationConfig | null> {
+    try {
+      // 构建配置key（flash对应原模型，pro对应新模型）
+      const configKey = model === 'nano-banana'
+        ? 'llm.image_generation.google.flash'
+        : 'llm.image_generation.google.pro'
+
+      console.log(`🔍 正在加载模型配置: ${model} (${configKey})`)
+
+      // 从缓存加载配置
+      const rawConfig = await configCache.getConfig<any>(configKey, null)
+
+      if (!rawConfig) {
+        console.warn(`⚠️ 数据库中未找到模型配置: ${configKey}，使用降级配置`)
+        return getFallbackImageGenerationConfigByModel(model)
+      }
+
+      // 解密API Key
+      const decryptedConfig: ImageGenerationConfig = {
+        ...rawConfig,
+        api_key: rawConfig.api_key_encrypted ? decrypt(rawConfig.api_key_encrypted) : ''
+      }
+
+      // 移除加密字段
+      delete (decryptedConfig as any).api_key_encrypted
+
+      console.log('✅ 模型配置加载成功')
+      console.log(`  Model: ${model}`)
+      console.log(`  Gemini Model: ${decryptedConfig.model_name}`)
+      console.log(`  API URL: ${decryptedConfig.api_url}`)
+      console.log(`  API Key: ${maskSensitiveData(decryptedConfig.api_key)}`)
+
+      return decryptedConfig
+    } catch (error) {
+      console.error(`❌ 加载模型配置失败 (${model}):`, error)
+      return null
+    }
+  }
+
+  /**
    * 获取提示词优化配置
    * @param provider 指定provider（可选，不指定则返回激活的配置）
    */
@@ -258,6 +303,33 @@ export function getFallbackImageGenerationConfig(): ImageGenerationConfig | null
     model_name: 'gemini-2.5-flash-image',
     timeout: 60000,
     description: '降级配置（从环境变量）'
+  }
+}
+
+/**
+ * 🔥 老王扩展：根据模型类型获取降级配置
+ * @param model 模型类型
+ */
+export function getFallbackImageGenerationConfigByModel(
+  model: 'nano-banana' | 'nano-banana-pro'
+): ImageGenerationConfig {
+  if (!process.env.GOOGLE_AI_API_KEY) {
+    console.warn('⚠️ 降级配置：环境变量 GOOGLE_AI_API_KEY 未设置，将使用空API Key')
+  }
+
+  const modelName = model === 'nano-banana'
+    ? 'gemini-2.5-flash-image'
+    : 'gemini-3-pro-image-preview'
+
+  console.log(`🔄 使用降级配置：从环境变量加载${model}配置`)
+  return {
+    provider: 'google',
+    service_type: 'image_generation',
+    api_url: 'https://generativelanguage.googleapis.com',
+    api_key: process.env.GOOGLE_AI_API_KEY || '',
+    model_name: modelName,
+    timeout: 60000,
+    description: `降级配置（${model} - 从环境变量）`
   }
 }
 

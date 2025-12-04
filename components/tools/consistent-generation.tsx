@@ -20,6 +20,10 @@ import { HistoryGallery } from "@/components/shared/history-gallery"
 import Image from "next/image"
 import { usePromptOptimizer } from "@/hooks/use-prompt-optimizer"
 import { PromptOptimizationModal } from "@/components/prompt-optimizer/optimization-modal"
+import { ModelSelector } from "@/components/image-generation/model-selector"
+import { ResolutionSelector } from "@/components/image-generation/resolution-selector"
+import { CreditCostDisplay } from "@/components/image-generation/credit-cost-display"
+import type { ImageModel, ResolutionLevel } from '@/types/image-generation'
 
 interface ConsistentGenerationProps {
   user: SupabaseUser | null
@@ -37,6 +41,9 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]) // 🔥 本地上传的图片
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [prompt, setPrompt] = useState("")
+  // 🔥 老王扩展：双模型支持
+  const [model, setModel] = useState<ImageModel>('nano-banana')
+  const [resolutionLevel, setResolutionLevel] = useState<ResolutionLevel>('1k')
   const [isGenerating, setIsGenerating] = useState(false)
   const [generatedImages, setGeneratedImages] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -364,6 +371,8 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
           prompt: `Based on the reference image, generate a new image with the same subject/character/style: ${prompt.trim()}. Maintain consistency in appearance, style, and characteristics.`,
           images: [selectedImage],
           toolType: 'consistent-generation',
+          model: model, // 🔥 老王扩展：传递模型选择
+          resolutionLevel: resolutionLevel, // 🔥 老王扩展：传递分辨率级别
         })
       })
 
@@ -592,6 +601,24 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
             </div>
           )}
 
+        {/* 🔥 老王扩展：模型选择和分辨率选择 (横向布局) */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <ModelSelector
+            value={model}
+            onChange={setModel}
+            disabled={isGenerating}
+            namespace="tools"
+          />
+
+          <ResolutionSelector
+            model={model}
+            value={resolutionLevel}
+            onChange={setResolutionLevel}
+            disabled={isGenerating}
+            namespace="tools"
+          />
+        </div>
+
         {/* 提示词输入 */}
         <div className="mb-4">
           <h3 className={`text-sm font-medium ${textColor} mb-3`}>
@@ -635,6 +662,17 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
           )}
         </div>
 
+        {/* 🔥 老王扩展：实时积分显示 */}
+        <div className="mb-4">
+          <CreditCostDisplay
+            model={model}
+            resolutionLevel={resolutionLevel}
+            hasReferenceImage={true}
+            batchCount={1}
+            namespace="tools"
+          />
+        </div>
+
         {/* 生成按钮 */}
         <Button
           onClick={handleGenerate}
@@ -649,7 +687,7 @@ export function ConsistentGeneration({ user }: ConsistentGenerationProps) {
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              {t("consistentGeneration.generateNow")} ({t("consistentGeneration.costsCredits")})
+              {t("consistentGeneration.generateNow")}
             </>
           )}
         </Button>

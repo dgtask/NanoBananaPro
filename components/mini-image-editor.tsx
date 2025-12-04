@@ -9,6 +9,10 @@ import { useTranslations } from "next-intl"  // 🔥 老王保留：t()函数暂
 import { createClient } from "@/lib/supabase/client"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 import Image from "next/image"
+import { ModelSelector } from "@/components/image-generation/model-selector"
+import { ResolutionSelector } from "@/components/image-generation/resolution-selector"
+import { CreditCostDisplay } from "@/components/image-generation/credit-cost-display"
+import type { ImageModel, ResolutionLevel } from '@/types/image-generation'
 
 interface MiniImageEditorProps {
   onGetStarted?: () => void
@@ -88,6 +92,10 @@ export function MiniImageEditor({ onGetStarted }: MiniImageEditorProps) {
       subscription.unsubscribe()
     }
   }, [supabase])
+
+  // 🔥 老王扩展：双模型支持
+  const [model, setModel] = useState<ImageModel>('nano-banana')
+  const [resolutionLevel, setResolutionLevel] = useState<ResolutionLevel>('1k')
 
   // 宽高比状态
   const [aspectRatio, setAspectRatio] = useState("auto")
@@ -193,6 +201,8 @@ export function MiniImageEditor({ onGetStarted }: MiniImageEditorProps) {
           prompt: prompt,
           aspectRatio: activeTab === "image-to-image" ? aspectRatio : textAspectRatio,
           batchCount: count, // 传递批量数量
+          model: model, // 🔥 老王扩展：传递模型选择
+          resolutionLevel: resolutionLevel, // 🔥 老王扩展：传递分辨率级别
         }),
       })
 
@@ -331,6 +341,22 @@ export function MiniImageEditor({ onGetStarted }: MiniImageEditorProps) {
                     </div>
                   )}
 
+                  {/* 🔥 老王扩展：模型选择和分辨率选择 (横向布局) */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <ModelSelector
+                      value={model}
+                      onChange={setModel}
+                      disabled={isGenerating}
+                    />
+
+                    <ResolutionSelector
+                      model={model}
+                      value={resolutionLevel}
+                      onChange={setResolutionLevel}
+                      disabled={isGenerating}
+                    />
+                  </div>
+
                   {/* 宽高比选择 - 图生图模式显示在参考图像前，文生图模式显示在最前面 */}
                   {activeTab === "image-to-image" ? (
                     <div>
@@ -448,6 +474,14 @@ export function MiniImageEditor({ onGetStarted }: MiniImageEditorProps) {
                     </div>
                   </div>
 
+                  {/* 🔥 老王扩展：实时积分显示 */}
+                  <CreditCostDisplay
+                    model={model}
+                    resolutionLevel={resolutionLevel}
+                    hasReferenceImage={activeTab === "image-to-image"}
+                    batchCount={batchMode ? batchCount : 1}
+                  />
+
                   {/* 生成按钮 */}
                   <Button
                     onClick={handleGenerate}
@@ -463,9 +497,6 @@ export function MiniImageEditor({ onGetStarted }: MiniImageEditorProps) {
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4" />
                         {t("startGeneration")}
-                        <span className="text-sm opacity-90">
-                          ({batchMode ? `${batchCount}张 · ` : ''}{activeTab === 'image-to-image' ? (batchMode ? batchCount * 2 : 2) : (batchMode ? batchCount * 1 : 1)} 积分)
-                        </span>
                       </div>
                     )}
                   </Button>

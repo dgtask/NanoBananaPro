@@ -67,6 +67,11 @@ import { downloadImage } from "@/lib/download-utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { usePromptOptimizer } from "@/hooks/use-prompt-optimizer"
 import { PromptOptimizationModal } from "@/components/prompt-optimizer/optimization-modal"
+// 🔥 老王新增：双模型支持组件和类型
+import { ModelSelector } from '@/components/image-generation/model-selector'
+import { ResolutionSelector } from '@/components/image-generation/resolution-selector'
+import { CreditCostDisplay } from '@/components/image-generation/credit-cost-display'
+import type { ImageModel, ResolutionLevel } from '@/types/image-generation'
 
 
 export default function ImageEditPage() {
@@ -608,6 +613,10 @@ export default function ImageEditPage() {
   const [textAspectRatio, setTextAspectRatio] = useState<string>("1:1")
   const [textHistoryRecordId, setTextHistoryRecordId] = useState<string | null>(null) // 🔥 老王新增：保存历史记录ID
 
+  // 🔥 老王新增：双模型支持状态
+  const [model, setModel] = useState<ImageModel>('nano-banana')
+  const [resolutionLevel, setResolutionLevel] = useState<ResolutionLevel>('1k')
+
   // 🔥 老王新增：推荐对话框状态
   const [showSubmissionDialog, setShowSubmissionDialog] = useState(false)
   const [submissionImageUrl, setSubmissionImageUrl] = useState<string>("")
@@ -717,6 +726,8 @@ export default function ImageEditPage() {
           prompt: prompt.trim(),
           toolType: tool || null, // 🔥 新增：传递工具类型
           batchCount: count, // 传递批量数量
+          model,              // 🔥 老王新增：双模型支持
+          resolutionLevel,    // 🔥 老王新增：分辨率级别
           ...(aspectRatio && aspectRatio !== "auto" && { aspectRatio: aspectRatio })
         })
       })
@@ -781,6 +792,8 @@ export default function ImageEditPage() {
           prompt: textPrompt.trim(),
           toolType: tool || null, // 🔥 新增：传递工具类型
           batchCount: count, // 传递批量数量
+          model,              // 🔥 老王新增：双模型支持
+          resolutionLevel,    // 🔥 老王新增：分辨率级别
           ...(textAspectRatio && textAspectRatio !== "auto" && { aspectRatio: textAspectRatio })
         })
       })
@@ -1149,6 +1162,32 @@ export default function ImageEditPage() {
                         </p>
                       </div>
 
+                      {/* 🔥 老王新增：模型选择和分辨率选择 (图生图) */}
+                      <div className={`p-6 border-b ${cardBorderLight}`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Sparkles className="w-4 h-4 text-[#D97706]" />
+                          <h4 className={`${textColor} text-sm font-medium`}>{tImageEditor("modelAndResolution")}</h4>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* 模型选择 */}
+                          <ModelSelector
+                            value={model}
+                            onChange={setModel}
+                            disabled={isImageGenerating}
+                            namespace="imageEditor"
+                          />
+
+                          {/* 分辨率选择 */}
+                          <ResolutionSelector
+                            model={model}
+                            value={resolutionLevel}
+                            onChange={setResolutionLevel}
+                            disabled={isImageGenerating}
+                            namespace="imageEditor"
+                          />
+                        </div>
+                      </div>
+
                       {/* Aspect Ratio Selection */}
                       <div className={`p-6 border-b ${cardBorderLight}`}>
                         <div className="flex items-center gap-2 mb-3">
@@ -1273,6 +1312,17 @@ export default function ImageEditPage() {
                       </div>
                     </div>
 
+                    {/* 🔥 老王新增：积分消耗显示 (图生图) */}
+                    <div className="mb-3">
+                      <CreditCostDisplay
+                        model={model}
+                        resolutionLevel={resolutionLevel}
+                        hasReferenceImage={true}
+                        batchCount={batchMode ? batchCount : 1}
+                        namespace="imageEditor"
+                      />
+                    </div>
+
                     {/* Generate Button */}
                     <Button
                       onClick={handleImageGenerate}
@@ -1280,14 +1330,7 @@ export default function ImageEditPage() {
                       className={`w-full ${primaryBg} hover:bg-[#B45309] text-white py-6 rounded-xl font-semibold text-lg`}
                     >
                       <Sparkles className="w-5 h-5 mr-2" />
-                      {isImageGenerating ? tImageEditor("generating") : (
-                        <>
-                          {tImageEditor("generateNow")}
-                          <span className="ml-2 text-sm opacity-90">
-                            ({batchMode ? `${batchCount}张 · ` : ''}{batchMode ? batchCount * 2 : 2} 积分)
-                          </span>
-                        </>
-                      )}
+                      {isImageGenerating ? tImageEditor("generating") : tImageEditor("generateNow")}
                     </Button>
                   </>
                 ) : (
@@ -1385,6 +1428,32 @@ export default function ImageEditPage() {
                         </p>
                       </div>
 
+                      {/* 🔥 老王新增：模型选择和分辨率选择 (文生图) */}
+                      <div className={`p-6 border-b ${cardBorderLight}`}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Sparkles className="w-4 h-4 text-[#D97706]" />
+                          <h4 className={`${textColor} text-sm font-medium`}>{tImageEditor("modelAndResolution")}</h4>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* 模型选择 */}
+                          <ModelSelector
+                            value={model}
+                            onChange={setModel}
+                            disabled={isTextGenerating}
+                            namespace="imageEditor"
+                          />
+
+                          {/* 分辨率选择 */}
+                          <ResolutionSelector
+                            model={model}
+                            value={resolutionLevel}
+                            onChange={setResolutionLevel}
+                            disabled={isTextGenerating}
+                            namespace="imageEditor"
+                          />
+                        </div>
+                      </div>
+
                       {/* Aspect Ratio Selection */}
                       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                         <h4 className={`${textColor} text-sm font-medium mb-3`}>{tImageEditor("aspectRatio")}</h4>
@@ -1445,6 +1514,17 @@ export default function ImageEditPage() {
                       </div>
                     </div>
 
+                    {/* 🔥 老王新增：积分消耗显示 (文生图) */}
+                    <div className="mb-3">
+                      <CreditCostDisplay
+                        model={model}
+                        resolutionLevel={resolutionLevel}
+                        hasReferenceImage={false}
+                        batchCount={batchMode ? textBatchCount : 1}
+                        namespace="imageEditor"
+                      />
+                    </div>
+
                     {/* Generate Button */}
                     <Button
                       onClick={handleTextGenerate}
@@ -1452,14 +1532,7 @@ export default function ImageEditPage() {
                       className={`w-full ${primaryBg} hover:bg-[#B45309] text-white py-6 rounded-xl font-semibold text-lg`}
                     >
                       <Sparkles className="w-5 h-5 mr-2" />
-                      {isTextGenerating ? tImageEditor("generating") : (
-                        <>
-                          {tImageEditor("generateNow")}
-                          <span className="ml-2 text-sm opacity-90">
-                            ({batchMode ? `${textBatchCount}张 · ` : ''}{batchMode ? textBatchCount * 1 : 1} 积分)
-                          </span>
-                        </>
-                      )}
+                      {isTextGenerating ? tImageEditor("generating") : tImageEditor("generateNow")}
                     </Button>
                   </>
                 )}

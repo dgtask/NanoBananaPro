@@ -295,6 +295,8 @@
     "selectedReference": "Selected Reference"
   },
   "chatEdit": {
+    "title": "Chat-based Image Editing",
+    "subtitle": "Edit images naturally through AI conversation",
     "description": "Interactive editing with natural language chat",
     "deleteHistoryFailed": "Failed to delete history",
     "previousImage": "This is your previously generated image",
@@ -305,7 +307,34 @@
     "editFailedPrefix": "❌ Edit failed: ",
     "unknownError": "Unknown error, please try again",
     "networkError": "❌ Edit failed: Network error or server exception, please try again later",
-    "costsCredits": "Costs 2 credits"
+    "costsCredits": "Costs 2 credits",
+    "addImage": "Add Image",
+    "referenceImages": "Reference Images",
+    "maxSize": "Max 50MB",
+    "editPromptTitle": "Edit Prompt",
+    "editPromptPlaceholder": "Tell AI how you want to edit this image...",
+    "startEditing": "Start Editing",
+    "editing": "Editing...",
+    "enterPromptFirst": "Please enter edit prompt first",
+    "chatHistory": "Chat History",
+    "historyTitle": "History",
+    "clear": "Clear",
+    "characterCount": "characters",
+    "welcomeMessage": "👋 Hello! I'm your AI image editing assistant. Upload an image, tell me what changes you want, and I'll make it happen.",
+    "feature": {
+      "naturalChat": {
+        "title": "Natural Chat",
+        "desc": "Edit images like chatting with a friend"
+      },
+      "referenceGuide": {
+        "title": "Reference Guidance",
+        "desc": "Use reference images to help AI understand your style"
+      },
+      "smartEdit": {
+        "title": "Smart Edit",
+        "desc": "AI understands semantics for precise editing"
+      }
+    }
   },
   "smartPrompt": {
     "description": "AI-powered prompt optimization for better generation quality",
@@ -325,5 +354,9 @@
   "promptOptimizer": {
     "button": "Optimize Prompt",
     "optimizing": "Optimizing..."
-  }
+  },
+  "model": "Model",
+  "resolutionLevel": "Resolution",
+  "willConsume": "Will consume",
+  "credits": "credits"
 }

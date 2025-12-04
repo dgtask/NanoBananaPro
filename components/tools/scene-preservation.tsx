@@ -16,6 +16,11 @@ import { ImagePreviewModal } from "@/components/shared/image-preview-modal"
 import { OutputGallery } from "@/components/shared/output-gallery"
 import { HistoryGallery } from "@/components/shared/history-gallery"
 import Image from "next/image"
+import { ModelSelector } from "@/components/image-generation/model-selector"
+import { ResolutionSelector } from "@/components/image-generation/resolution-selector"
+import { CreditCostDisplay } from "@/components/image-generation/credit-cost-display"
+import type { ImageModel, ResolutionLevel } from '@/types/image-generation'
+import { MODEL_CONFIGS } from '@/types/image-generation'
 
 interface ScenePreservationProps {
   user: SupabaseUser | null
@@ -42,6 +47,19 @@ export function ScenePreservation({ user }: ScenePreservationProps) {
   const [historyRecords, setHistoryRecords] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [historyImages, setHistoryImages] = useState<any[]>([])
+  // 🔥 老王扩展：双模型支持
+  const [model, setModel] = useState<ImageModel>('nano-banana')
+  const [resolutionLevel, setResolutionLevel] = useState<ResolutionLevel>('1k')
+
+  // 🔥 老王修复：监听模型切换，自动调整分辨率到该模型支持的第一个分辨率
+  useEffect(() => {
+    const availableResolutions = MODEL_CONFIGS[model].resolutions as ResolutionLevel[]
+
+    if (!availableResolutions.includes(resolutionLevel)) {
+      console.log(`⚠️ 模型切换，分辨率自动调整: ${model} | ${resolutionLevel} -> ${availableResolutions[0]}`)
+      setResolutionLevel(availableResolutions[0])
+    }
+  }, [model, resolutionLevel])
 
   // 🔥 老王重构：使用自定义Hook管理预览状态
   const {
@@ -223,6 +241,8 @@ export function ScenePreservation({ user }: ScenePreservationProps) {
           images: [referenceImage],
           prompt,
           toolType: 'scene-preservation', // 🔥 老王：标记工具类型
+          model: model, // 🔥 老王扩展：传递模型选择
+          resolutionLevel: resolutionLevel, // 🔥 老王扩展：传递分辨率级别
         }),
       })
 
@@ -403,6 +423,24 @@ export function ScenePreservation({ user }: ScenePreservationProps) {
           </label>
         )}
 
+        {/* 🔥 老王扩展：模型选择和分辨率选择 (横向布局) */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <ModelSelector
+            value={model}
+            onChange={setModel}
+            disabled={isGenerating}
+            namespace="tools"
+          />
+
+          <ResolutionSelector
+            model={model}
+            value={resolutionLevel}
+            onChange={setResolutionLevel}
+            disabled={isGenerating}
+            namespace="tools"
+          />
+        </div>
+
         {/* 删除描述输入框 */}
         <div className="mb-4">
           <label className={`block ${textColor} text-sm font-medium mb-2`}>
@@ -419,6 +457,16 @@ export function ScenePreservation({ user }: ScenePreservationProps) {
           </p>
         </div>
 
+        {/* 🔥 老王扩展：实时积分显示 */}
+        <div className="mb-4">
+          <CreditCostDisplay
+            model={model}
+            resolutionLevel={resolutionLevel}
+            hasReferenceImage={true}
+            batchCount={1}
+            namespace="tools"
+          />
+        </div>
 
         <Button
           onClick={handleGenerate}
@@ -431,7 +479,7 @@ export function ScenePreservation({ user }: ScenePreservationProps) {
               生成中...
             </>
           ) : (
-            '保留场景 (消耗 2 积分)'
+            '保留场景'
           )}
         </Button>
 
