@@ -6,6 +6,69 @@
 
 ## [Unreleased]
 
+### Added（新增）
+- **🎨 双模型支持完整实现（Dual Model Support - Phase 6/7 Complete）**:
+  - **前端功能**:
+    - ✅ ModelSelector 组件：支持 `nano-banana` 和 `nano-banana-pro` 模型选择
+    - ✅ ResolutionSelector 组件：支持 1k/2k/4k 分辨率选择（根据模型动态调整可用选项）
+    - ✅ CreditCostDisplay 组件：实时计算和显示积分消耗（基于模型和分辨率）
+    - ✅ 主编辑器页面（`/app/[locale]/editor/image-edit/page.tsx`）集成模型选择
+      - Image-to-Image 模式支持模型选择
+      - Text-to-Image 模式支持模型选择
+    - ✅ 所有 7 个工具组件集成模型选择（横向布局）:
+      1. `mini-image-editor.tsx` - 快速编辑器
+      2. `scene-preservation.tsx` - 场景保留
+      3. `text-to-image-with-text.tsx` - 文生图（带文字）
+      4. `chat-edit.tsx` - 对话式编辑
+      5. `consistent-generation.tsx` - 角色一致性
+      6. `style-transfer.tsx` - 风格迁移
+      7. `background-remover.tsx` - 背景移除
+  - **数据库支持**:
+    - ✅ 新增 `generation_history.model_name` 字段（VARCHAR(50)）
+    - ✅ 新增 `generation_history.resolution_level` 字段（VARCHAR(10)）
+    - ✅ 添加索引优化查询性能：
+      - `idx_generation_history_model` - 按模型查询
+      - `idx_generation_history_resolution` - 按分辨率查询
+      - `idx_generation_history_model_resolution` - 组合索引
+    - ✅ 回填旧数据为默认值（model_name='nano-banana', resolution_level='1k'）
+    - 📄 **迁移文件**: `supabase/migrations/20251204000001_add_model_resolution_to_generation_history.sql`
+  - **UI/UX 改进**:
+    - ✅ 横向布局（Grid 2 列）替代原垂直布局，提升空间利用率
+    - ✅ 实时积分消耗提示，帮助用户做出经济决策
+    - ✅ 禁用状态管理（生成中时禁用选择器）
+  - **技术细节**:
+    - TypeScript 类型定义：`ImageModel = 'nano-banana' | 'nano-banana-pro'`
+    - TypeScript 类型定义：`ResolutionLevel = '1k' | '2k' | '4k'`
+    - API 调用自动传递 `model` 和 `resolutionLevel` 参数
+    - 后端 Gemini API 集成（模型名称：`gemini-2.5-flash-image` 和 `gemini-3-pro-image-preview`）
+
+### Fixed（修复）
+- **🐛 chat-edit 工具英文翻译缺失问题**:
+  - **问题**: 按钮显示原始翻译键 `tools.chatEdit.startEditing` 导致文字溢出
+  - **根本原因**: `messages/en/tools.json` 中 `chatEdit` 部分缺失大量翻译键
+  - **修复范围**: 补全所有缺失的翻译键
+    - `startEditing`: "Start Editing"
+    - `editing`: "Editing..."
+    - `clear`: "Clear"
+    - `characterCount`: "characters"
+    - 以及 `title`, `subtitle`, `feature` 等所有键
+  - **修复结果**: ✅ 按钮正常显示英文文本，无溢出问题
+
+- **🐛 主编辑器 isGenerating 未定义错误**:
+  - **错误信息**: `ReferenceError: isGenerating is not defined at page.tsx:1442`
+  - **根本原因**: 使用了通用变量名 `isGenerating`，但页面使用独立状态变量
+  - **修复方案**:
+    - Image-to-Image 模式使用 `isImageGenerating`
+    - Text-to-Image 模式使用 `isTextGenerating`
+  - **修复位置**: ModelSelector 和 ResolutionSelector 的 `disabled` 属性
+
+### Changed（变更）
+- **🎨 所有工具组件布局改为横向排列**:
+  - **变更前**: `space-y-4` 垂直堆叠布局
+  - **变更后**: `grid grid-cols-2 gap-4` 横向两列布局
+  - **影响组件**: 全部 7 个工具组件的 ModelSelector + ResolutionSelector 区域
+  - **优势**: 节省垂直空间，视觉上更紧凑
+
 ## [0.0.6] - 2025-12-04
 
 ### Fixed（修复）
